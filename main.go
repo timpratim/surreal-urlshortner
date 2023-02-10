@@ -1,17 +1,26 @@
 package main
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 	"math/rand"
 	"net/http"
+	"os"
+
+	"github.com/surrealdb/surrealdb.go"
 )
 
+type Result struct {
+	URLs   []URL  `json:"result"`
+	Status string `json:"status"`
+	Time   string `json:"time"`
+}
+
 type URL struct {
-	ID        uint   `gorm:"primary_key"`
-	Original  string `gorm:"not null"`
-	Shortened string `gorm:"not null"`
+	ID        string `json:"id"`
+	Original  string `json:"original"`
+	Shortened string `json:"shortened"`
 }
 
 func shortenURL(url string) string {
@@ -20,20 +29,73 @@ func shortenURL(url string) string {
 	return shortendURL
 }
 
-func Connect() (*gorm.DB, error) {
-	db, err := gorm.Open(sqlite.Open("urls.db"), &gorm.Config{})
+func Connect() (*surrealdb.DB, error) {
+	url := os.Getenv("SURREALDB_URL")
+	if url == "" {
+		url = "ws://localhost:8000/rpc"
+	}
+
+	db, err := surrealdb.New(url)
 	if err != nil {
 		return nil, err
 	}
+
 	return db, nil
 }
 
-func redirectURL(db *gorm.DB, w http.ResponseWriter, r *http.Request) {
+func signin(db *surrealdb.DB) (interface{}, error) {
+	signin, err := db.Signin(map[string]interface{}{
+		"user": "root",
+		"pass": "root",
+	})
+
+	if err != nil {
+		fmt.Println("failed to signin")
+		return nil, err
+	}
+
+	return signin, nil
+}
+
+func redirectURL(db *surrealdb.DB, w http.ResponseWriter, r *http.Request) {
 
 	id := r.URL.Path[1:]
-	var url URL
-	db.First(&url, id)
-	http.Redirect(w, r, url.Original, http.StatusFound)
+
+	fmt.Println("The value of id is", id)
+	db.Use("test", "test")
+	_, err := signin(db)
+	if err != nil {
+		panic("failed to signin")
+	}
+	data, err := db.Query("SELECT * FROM urls WHERE shortened = $shortened limit 1", map[string]interface{}{
+		"shortened": "http://localhost:8080/" + id,
+	})
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	jsonBytes, err := json.Marshal(data)
+	if err != nil {
+		panic(err)
+	}
+	//unmarshal the data
+	var results []Result
+	err = json.Unmarshal(jsonBytes, &results)
+	if err != nil {
+		panic(err)
+	}
+
+	if len(results) == 0 {
+		panic(errors.New("no results found"))
+	}
+	something := results[0].URLs
+	if len(something) == 0 {
+		panic(errors.New("no results found"))
+	}
+	originalURL := something[0].Original
+	fmt.Println(originalURL)
+	//redirect to the original url
+	http.Redirect(w, r, originalURL, http.StatusSeeOther)
 
 }
 
@@ -42,12 +104,28 @@ func main() {
 	if err != nil {
 		panic("failed to connect database")
 	}
-	db.AutoMigrate(&URL{})
+	defer db.Close()
+
 	http.HandleFunc("/shorten", func(w http.ResponseWriter, r *http.Request) {
 		original := r.FormValue("url")
 		shortened := shortenURL(original)
 		fmt.Printf(shortened)
-		db.Create(&URL{Original: original, Shortened: shortened})
+		//db.Create(&URL{Original: original, Shortened: shortened})
+		db.Use("test", "test")
+		_, err := signin(db)
+		if err != nil {
+			panic("failed to signin")
+		}
+
+		urlMap, err := db.Create("urls", map[string]interface{}{
+			"original":  original,
+			"shortened": shortened,
+		})
+		fmt.Println(urlMap)
+
+		if err != nil || urlMap == nil {
+			panic("failed to create user")
+		}
 
 	})
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
