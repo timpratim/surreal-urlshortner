@@ -19,6 +19,7 @@ const database = "urlshortner"
 var log = logger.New()
 
 func main() {
+	log.SetLevel(logger.TraceLevel)
 	// Create the database repository that uses SurrealDB to store information
 	repository, err := repository.NewShortenerRepository(url, "root", "root", namespace, database)
 	if err != nil {

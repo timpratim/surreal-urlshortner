@@ -30,7 +30,11 @@ type Result struct {
 	Time   string `json:"time"`
 }
 
-var log = logger.New()
+var log = func() *logger.Logger {
+	log := logger.New()
+	log.SetLevel(logger.TraceLevel)
+	return log
+}()
 
 func NewWebService(r *repository.ShortenerRepository, redirectAddress string) *webService {
 	return &webService{
@@ -89,16 +93,24 @@ func (ws webService) RedirectURL(writer http.ResponseWriter, request *http.Reque
 	}
 	something := results[0].URLs
 	if len(something) == 0 {
-		internalError(writer, errors.New("no results found"))
+		internalError(writer, errors.New("results did not contain any URLs"))
 		return
 	}
 	originalURL := something[0].Original
-	log.Tracef("Original URL: %s", originalURL)
+	if originalURL == "" {
+		internalError(writer, errors.New("original URL is empty"))
+		return
+	}
+	log.Tracef("Translated short '%s' to original '%s'", id, originalURL)
 	//redirect to the original url
 	http.Redirect(writer, request, originalURL, http.StatusSeeOther)
 }
 
+// Helper code below this line
+// ----------------------------------------------------------------------
+
 func badRequest(writer http.ResponseWriter, cause error) {
+	log.Errorf("bad request: %+v", cause)
 	writer.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(writer).Encode(map[string]string{"error": "bad request",
 		"cause": cause.Error()})
@@ -106,6 +118,7 @@ func badRequest(writer http.ResponseWriter, cause error) {
 }
 
 func internalError(writer http.ResponseWriter, cause error) {
+	log.Errorf("internal error: %+v", cause)
 	writer.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(writer).Encode(map[string]string{"error": "internal error",
 		"cause": cause.Error()})
