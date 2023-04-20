@@ -8,6 +8,7 @@ import (
 	"github.com/timpratim/surreal-urlshortner/repository"
 	"math/rand"
 	"net/http"
+	"strings"
 )
 
 // webService is used to handle web requests via it's public methods
@@ -48,6 +49,9 @@ func (ws webService) ShortenURL(writer http.ResponseWriter, request *http.Reques
 	if original == "" {
 		badRequest(writer, errors.New("url is required"))
 		return
+	}
+	if !strings.HasPrefix(original, "http://") && !strings.HasPrefix(original, "https://") {
+		original = "https://" + original
 	}
 	shortened := shortenURL(ws.redirectAddress)
 	log.Tracef("created shortened url '%s' for input '%s'", shortened, original)

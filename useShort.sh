@@ -6,4 +6,4 @@ if [ -z "$1" ]; then
 else
   LONG="$1"
 fi
-curl -X GET $LONG
+curl -X GET --verbose $LONG

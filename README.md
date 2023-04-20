@@ -10,8 +10,7 @@ Shorten URLs with SurrealDB
 ## Run
 
 ```
-go build
-./surreal-urlshortener
+go build && ./surreal-urlshortener
 ```
 
 ## Interact
