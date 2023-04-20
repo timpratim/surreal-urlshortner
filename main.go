@@ -9,6 +9,9 @@ import (
 )
 
 const port = 8090
+
+var redirectAddress = fmt.Sprintf("http://localhost:%d", port)
+
 const url = "ws://localhost:8000/rpc"
 const namespace = "surrealdb-conference-content"
 const database = "urlshortner"
@@ -29,7 +32,7 @@ func main() {
 	}()
 
 	// Create the web service
-	ws := web.NewWebService(repository)
+	ws := web.NewWebService(repository, redirectAddress)
 	http.HandleFunc("/shorten", ws.ShortenURL)
 	http.HandleFunc("/", ws.RedirectURL)
 	log.Infof("Listening on port %d", port)

@@ -12,7 +12,8 @@ import (
 
 // webService is used to handle web requests via it's public methods
 type webService struct {
-	repository *repository.ShortenerRepository
+	repository      *repository.ShortenerRepository
+	redirectAddress string
 }
 
 // URL is a representation of a shortened URL
@@ -31,9 +32,10 @@ type Result struct {
 
 var log = logger.New()
 
-func NewWebService(r *repository.ShortenerRepository) *webService {
+func NewWebService(r *repository.ShortenerRepository, redirectAddress string) *webService {
 	return &webService{
-		repository: r,
+		repository:      r,
+		redirectAddress: redirectAddress,
 	}
 }
 
@@ -88,13 +90,13 @@ func (ws webService) RedirectURL(writer http.ResponseWriter, request *http.Reque
 
 }
 
-func shortenURL(url string) string {
+func shortenURL(redirectUrl string) string {
 	s := ""
 	//rand.Intn(26) returns a random number between 0 and 25. 97 is the ascii value of 'a'. So rand.Intn(26) + 97 returns a random lowercase letter.
 	for i := 0; i < 6; i++ {
 		s += string(rand.Intn(26) + 97)
 	}
 
-	shortendURL := fmt.Sprintf("http://localhost:8090/%s", s)
+	shortendURL := fmt.Sprintf("%s/%s", redirectUrl, s)
 	return shortendURL
 }
