@@ -10,8 +10,8 @@ import (
 	"net/http"
 )
 
-// WebService is used to handle web requests via it's public methods
-type WebService struct {
+// webService is used to handle web requests via it's public methods
+type webService struct {
 	repository *repository.ShortenerRepository
 }
 
@@ -31,13 +31,13 @@ type Result struct {
 
 var log = logger.New()
 
-func NewWebService(r *repository.ShortenerRepository) *WebService {
-	return &WebService{
+func NewWebService(r *repository.ShortenerRepository) *webService {
+	return &webService{
 		repository: r,
 	}
 }
 
-func (ws WebService) ShortenURL(writer http.ResponseWriter, request *http.Request) {
+func (ws webService) ShortenURL(writer http.ResponseWriter, request *http.Request) {
 	original := request.FormValue("url")
 	shortened := shortenURL(original)
 	log.Tracef("shortened url: %s", shortened)
@@ -54,7 +54,7 @@ func (ws WebService) ShortenURL(writer http.ResponseWriter, request *http.Reques
 
 }
 
-func (ws WebService) RedirectURL(writer http.ResponseWriter, request *http.Request) {
+func (ws webService) RedirectURL(writer http.ResponseWriter, request *http.Request) {
 	id := request.URL.Path[1:]
 	log.Tracef("Generating redirect URL for %s", id)
 
