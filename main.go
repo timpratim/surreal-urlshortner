@@ -24,8 +24,13 @@ type URL struct {
 }
 
 func shortenURL(url string) string {
-	id := rand.Intn(10000)
-	shortendURL := fmt.Sprintf("http://localhost:8080/%d", id)
+	s := ""
+	//rand.Intn(26) returns a random number between 0 and 25. 97 is the ascii value of 'a'. So rand.Intn(26) + 97 returns a random lowercase letter.
+	for i := 0; i < 6; i++ {
+		s += string(rand.Intn(26) + 97)
+	}
+
+	shortendURL := fmt.Sprintf("http://localhost:8090/%s", s)
 	return shortendURL
 }
 
@@ -68,7 +73,7 @@ func redirectURL(db *surrealdb.DB, w http.ResponseWriter, r *http.Request) {
 		panic("failed to signin")
 	}
 	data, err := db.Query("SELECT * FROM urls WHERE shortened = $shortened limit 1", map[string]interface{}{
-		"shortened": "http://localhost:8080/" + id,
+		"shortened": "http://localhost:8090/" + id,
 	})
 	if err != nil {
 		fmt.Println(err)
@@ -104,7 +109,8 @@ func main() {
 	if err != nil {
 		panic("failed to connect database")
 	}
-	defer db.Close()
+	//defer db.Close()
+	fmt.Println("Connected to database")
 
 	http.HandleFunc("/shorten", func(w http.ResponseWriter, r *http.Request) {
 		original := r.FormValue("url")
@@ -126,12 +132,19 @@ func main() {
 		if err != nil || urlMap == nil {
 			panic("failed to create user")
 		}
+		// return json response with shortened url
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"shortened": shortened})
 
 	})
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		redirectURL(db, w, r)
 	})
-	http.ListenAndServe(":8080", nil)
+	fmt.Println("Listening on port 8090")
+	err = http.ListenAndServe(":8090", nil)
+	if err != nil {
+		panic(err)
+	}
 }
 
 //https://www.youtube.com/watch?v=4KfuQwB5rIs&t=1s
