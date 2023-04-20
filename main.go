@@ -4,11 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	surrealdb "github.com/surrealdb/surrealdb.go"
 	"math/rand"
 	"net/http"
 	"os"
-
-	"github.com/surrealdb/surrealdb.go"
 )
 
 type Result struct {
