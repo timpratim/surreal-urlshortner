@@ -19,4 +19,5 @@ go build
 ```
 ./shortenUrl.sh my-example-website.com
 ./useShort.sh https://localhost:8080/abc123
+./connectSurreal.sh
 ```
