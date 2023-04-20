@@ -43,3 +43,9 @@ func (r ShortenerRepository) CreateShortUrl(original string, shortened string) (
 		"shortened": shortened,
 	})
 }
+
+func (r ShortenerRepository) FindShortenedURL(id string) (interface{}, error) {
+	return r.db.Query("SELECT * FROM urls WHERE shortened = $shortened limit 1", map[string]interface{}{
+		"shortened": "http://localhost:8090/" + id,
+	})
+}

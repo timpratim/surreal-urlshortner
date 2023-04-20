@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	logger "github.com/sirupsen/logrus"
-	surrealdb "github.com/surrealdb/surrealdb.go"
 	"github.com/timpratim/surreal-urlshortner/repository"
 	"math/rand"
 	"net/http"
@@ -30,6 +29,10 @@ const url = "ws://localhost:8000/rpc"
 const namespace = "surrealdb-conference-content"
 const database = "urlshortner"
 
+type WebService struct {
+	repository repository.ShortenerRepository
+}
+
 func shortenURL(url string) string {
 	s := ""
 	//rand.Intn(26) returns a random number between 0 and 25. 97 is the ascii value of 'a'. So rand.Intn(26) + 97 returns a random lowercase letter.
@@ -41,14 +44,11 @@ func shortenURL(url string) string {
 	return shortendURL
 }
 
-func redirectURL(db *surrealdb.DB, w http.ResponseWriter, r *http.Request) {
-
+func (ws *WebService) redirectURL(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Path[1:]
 	log.Tracef("Generating redirect URL for %s", id)
 
-	data, err := db.Query("SELECT * FROM urls WHERE shortened = $shortened limit 1", map[string]interface{}{
-		"shortened": "http://localhost:8090/" + id,
-	})
+	data, err := ws.repository.FindShortenedURL(id)
 	if err != nil {
 		log.Errorf("failed to query shortened: %+v", err)
 	}
@@ -79,6 +79,7 @@ func redirectURL(db *surrealdb.DB, w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	// Create the database repository that uses SurrealDB to store information
 	repository, err := repository.NewShortenerRepository(url, "root", "root", namespace, database)
 	if err != nil {
 		log.Fatalf("failed to create shortener repository: %+v", err)
@@ -89,7 +90,7 @@ func main() {
 		repository.Close()
 	}()
 
-	http.HandleFunc("/shorten", func(w http.ResponseWriter, r *http.Request) error {
+	http.HandleFunc("/shorten", func(w http.ResponseWriter, r *http.Request) {
 		original := r.FormValue("url")
 		shortened := shortenURL(original)
 		log.Tracef("shortened url: %s", shortened)
@@ -97,8 +98,7 @@ func main() {
 
 		urlMap, err := repository.CreateShortUrl(original, shortened)
 		if err != nil {
-			log.Errorf("failed to create short url: %+v", err)
-			return err
+			log.Fatalf("failed to create short url: %+v", err) // TODO handle this better
 		}
 		log.Tracef("created url mapping: %+v", urlMap)
 
