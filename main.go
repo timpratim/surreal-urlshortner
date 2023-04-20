@@ -89,21 +89,19 @@ func main() {
 		repository.Close()
 	}()
 
-	http.HandleFunc("/shorten", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/shorten", func(w http.ResponseWriter, r *http.Request) error {
 		original := r.FormValue("url")
 		shortened := shortenURL(original)
 		log.Tracef("shortened url: %s", shortened)
 		//db.Create(&URL{Original: original, Shortened: shortened})
 
-		urlMap, err := db.Create("urls", map[string]interface{}{
-			"original":  original,
-			"shortened": shortened,
-		})
+		urlMap, err := repository.CreateShortUrl(original, shortened)
+		if err != nil {
+			log.Errorf("failed to create short url: %+v", err)
+			return err
+		}
 		log.Tracef("created url mapping: %+v", urlMap)
 
-		if err != nil || urlMap == nil {
-			panic("failed to create user")
-		}
 		// return json response with shortened url
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"shortened": shortened})

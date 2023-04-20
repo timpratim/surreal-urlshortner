@@ -36,3 +36,10 @@ func NewShortenerRepository(address, user, password, namespace, database string)
 func (r ShortenerRepository) Close() {
 	r.db.Close()
 }
+
+func (r ShortenerRepository) CreateShortUrl(original string, shortened string) (interface{}, error) {
+	return r.db.Create("urls", map[string]interface{}{
+		"original":  original,
+		"shortened": shortened,
+	})
+}
