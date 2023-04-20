@@ -6,9 +6,9 @@ import (
 	"fmt"
 	logger "github.com/sirupsen/logrus"
 	surrealdb "github.com/surrealdb/surrealdb.go"
+	"github.com/timpratim/surreal-urlshortner/repository"
 	"math/rand"
 	"net/http"
-	"os"
 )
 
 type Result struct {
@@ -26,6 +26,9 @@ type URL struct {
 var log = logger.New()
 
 const port = 8090
+const url = "ws://localhost:8000/rpc"
+const namespace = "surrealdb-conference-content"
+const database = "urlshortner"
 
 func shortenURL(url string) string {
 	s := ""
@@ -38,44 +41,11 @@ func shortenURL(url string) string {
 	return shortendURL
 }
 
-func Connect() (*surrealdb.DB, error) {
-	url := os.Getenv("SURREALDB_URL")
-	if url == "" {
-		url = "ws://localhost:8000/rpc"
-	}
-
-	db, err := surrealdb.New(url)
-	if err != nil {
-		return nil, err
-	}
-
-	return db, nil
-}
-
-func signin(db *surrealdb.DB) (interface{}, error) {
-	signin, err := db.Signin(map[string]interface{}{
-		"user": "root",
-		"pass": "root",
-	})
-
-	if err != nil {
-		log.Errorf("failed to signin: %+v", err)
-		return nil, err
-	}
-
-	return signin, nil
-}
-
 func redirectURL(db *surrealdb.DB, w http.ResponseWriter, r *http.Request) {
 
 	id := r.URL.Path[1:]
 	log.Tracef("Generating redirect URL for %s", id)
 
-	db.Use("test", "test")
-	_, err := signin(db)
-	if err != nil {
-		panic("failed to signin")
-	}
 	data, err := db.Query("SELECT * FROM urls WHERE shortened = $shortened limit 1", map[string]interface{}{
 		"shortened": "http://localhost:8090/" + id,
 	})
@@ -109,26 +79,21 @@ func redirectURL(db *surrealdb.DB, w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	db, err := Connect()
+	repository, err := repository.NewShortenerRepository(url, "root", "root", namespace, database)
 	if err != nil {
-		panic("failed to connect database")
+		log.Fatalf("failed to create shortener repository: %+v", err)
 	}
-	defer func() {
-		log.Infof("closing database")
-		db.Close()
-	}()
 	log.Infof("Connected to database")
+	defer func() {
+		log.Infof("Closing database")
+		repository.Close()
+	}()
 
 	http.HandleFunc("/shorten", func(w http.ResponseWriter, r *http.Request) {
 		original := r.FormValue("url")
 		shortened := shortenURL(original)
 		log.Tracef("shortened url: %s", shortened)
 		//db.Create(&URL{Original: original, Shortened: shortened})
-		db.Use("test", "test")
-		_, err := signin(db)
-		if err != nil {
-			panic("failed to signin")
-		}
 
 		urlMap, err := db.Create("urls", map[string]interface{}{
 			"original":  original,
