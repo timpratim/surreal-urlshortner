@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	logger "github.com/sirupsen/logrus"
 	surrealdb "github.com/surrealdb/surrealdb.go"
 	"math/rand"
 	"net/http"
@@ -21,6 +22,10 @@ type URL struct {
 	Original  string `json:"original"`
 	Shortened string `json:"shortened"`
 }
+
+var log = logger.New()
+
+const port = 8090
 
 func shortenURL(url string) string {
 	s := ""
@@ -54,7 +59,7 @@ func signin(db *surrealdb.DB) (interface{}, error) {
 	})
 
 	if err != nil {
-		fmt.Println("failed to signin")
+		log.Errorf("failed to signin: %+v", err)
 		return nil, err
 	}
 
@@ -64,8 +69,8 @@ func signin(db *surrealdb.DB) (interface{}, error) {
 func redirectURL(db *surrealdb.DB, w http.ResponseWriter, r *http.Request) {
 
 	id := r.URL.Path[1:]
+	log.Tracef("Generating redirect URL for %s", id)
 
-	fmt.Println("The value of id is", id)
 	db.Use("test", "test")
 	_, err := signin(db)
 	if err != nil {
@@ -75,7 +80,7 @@ func redirectURL(db *surrealdb.DB, w http.ResponseWriter, r *http.Request) {
 		"shortened": "http://localhost:8090/" + id,
 	})
 	if err != nil {
-		fmt.Println(err)
+		log.Errorf("failed to query shortened: %+v", err)
 	}
 
 	jsonBytes, err := json.Marshal(data)
@@ -97,7 +102,7 @@ func redirectURL(db *surrealdb.DB, w http.ResponseWriter, r *http.Request) {
 		panic(errors.New("no results found"))
 	}
 	originalURL := something[0].Original
-	fmt.Println(originalURL)
+	log.Tracef("Original URL: %s", originalURL)
 	//redirect to the original url
 	http.Redirect(w, r, originalURL, http.StatusSeeOther)
 
@@ -108,13 +113,16 @@ func main() {
 	if err != nil {
 		panic("failed to connect database")
 	}
-	//defer db.Close()
-	fmt.Println("Connected to database")
+	defer func() {
+		log.Infof("closing database")
+		db.Close()
+	}()
+	log.Infof("Connected to database")
 
 	http.HandleFunc("/shorten", func(w http.ResponseWriter, r *http.Request) {
 		original := r.FormValue("url")
 		shortened := shortenURL(original)
-		fmt.Printf(shortened)
+		log.Tracef("shortened url: %s", shortened)
 		//db.Create(&URL{Original: original, Shortened: shortened})
 		db.Use("test", "test")
 		_, err := signin(db)
@@ -126,7 +134,7 @@ func main() {
 			"original":  original,
 			"shortened": shortened,
 		})
-		fmt.Println(urlMap)
+		log.Tracef("created url mapping: %+v", urlMap)
 
 		if err != nil || urlMap == nil {
 			panic("failed to create user")
@@ -139,10 +147,10 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		redirectURL(db, w, r)
 	})
-	fmt.Println("Listening on port 8090")
-	err = http.ListenAndServe(":8090", nil)
+	log.Infof("Listening on port %d", port)
+	err = http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 	if err != nil {
-		panic(err)
+		log.Fatalf("failed to listen: %+v", err)
 	}
 }
 
