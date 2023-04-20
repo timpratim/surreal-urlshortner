@@ -8,5 +8,5 @@ IN_MEMORY="memory" # Default mode of operation
 ROCKSDB="file://$HOME/urlshortener-demo" # If you want to persist data
 TIKV="tikv://address-to-tikv-cluster:2379" # For when you want to scale your storage layer
 
-surreal start $OVERRIDE_ADDRESS $FORCE_SCHEMA $RUN_DB_WITH_ADMIN $IN_MEMORY
+surreal start $OVERRIDE_ADDRESS $RUN_DB_WITH_ADMIN $IN_MEMORY
 
