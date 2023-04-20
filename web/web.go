@@ -41,19 +41,23 @@ func NewWebService(r *repository.ShortenerRepository, redirectAddress string) *w
 
 func (ws webService) ShortenURL(writer http.ResponseWriter, request *http.Request) {
 	original := request.FormValue("url")
-	shortened := shortenURL(original)
-	log.Tracef("shortened url: %s", shortened)
+	if original == "" {
+		badRequest(writer, errors.New("url is required"))
+		return
+	}
+	shortened := shortenURL(ws.redirectAddress)
+	log.Tracef("created shortened url '%s' for input '%s'", shortened, original)
 
 	urlMap, err := ws.repository.CreateShortUrl(original, shortened)
 	if err != nil {
-		log.Fatalf("failed to create short url: %+v", err) // TODO handle this better
+		internalError(writer, fmt.Errorf("failed to create short url: %+v", err))
+		return
 	}
 	log.Tracef("created url mapping: %+v", urlMap)
 
 	// return json response with shortened url
 	writer.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(writer).Encode(map[string]string{"shortened": shortened})
-
+	json.NewEncoder(writer).Encode(map[string]string{"shortened": shortened, "original": original})
 }
 
 func (ws webService) RedirectURL(writer http.ResponseWriter, request *http.Request) {
@@ -62,32 +66,50 @@ func (ws webService) RedirectURL(writer http.ResponseWriter, request *http.Reque
 
 	data, err := ws.repository.FindShortenedURL(id)
 	if err != nil {
-		log.Errorf("failed to query shortened: %+v", err)
+		internalError(writer, fmt.Errorf("failed to find shortened url: %+v", err))
+		return
 	}
 
 	jsonBytes, err := json.Marshal(data)
 	if err != nil {
-		panic(err)
+		internalError(writer, fmt.Errorf("failed to marshal shortened url: %+v", err))
+		return
 	}
 	//unmarshal the data
 	var results []Result
 	err = json.Unmarshal(jsonBytes, &results)
 	if err != nil {
-		panic(err)
+		internalError(writer, fmt.Errorf("failed to unmarshal shortened url: %+v", err))
+		return
 	}
 
 	if len(results) == 0 {
-		panic(errors.New("no results found"))
+		internalError(writer, errors.New("no results found"))
+		return
 	}
 	something := results[0].URLs
 	if len(something) == 0 {
-		panic(errors.New("no results found"))
+		internalError(writer, errors.New("no results found"))
+		return
 	}
 	originalURL := something[0].Original
 	log.Tracef("Original URL: %s", originalURL)
 	//redirect to the original url
 	http.Redirect(writer, request, originalURL, http.StatusSeeOther)
+}
 
+func badRequest(writer http.ResponseWriter, cause error) {
+	writer.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(writer).Encode(map[string]string{"error": "bad request",
+		"cause": cause.Error()})
+	writer.WriteHeader(http.StatusBadRequest)
+}
+
+func internalError(writer http.ResponseWriter, cause error) {
+	writer.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(writer).Encode(map[string]string{"error": "internal error",
+		"cause": cause.Error()})
+	writer.WriteHeader(http.StatusInternalServerError)
 }
 
 func shortenURL(redirectUrl string) string {
