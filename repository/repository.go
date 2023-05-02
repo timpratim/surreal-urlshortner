@@ -13,6 +13,7 @@ type ShortenerRepository struct {
 }
 
 func NewShortenerRepository(address, user, password, namespace, database string) (*ShortenerRepository, error) {
+	//surreal.New is
 	db, err := surreal.New(address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %s", err)
@@ -45,6 +46,7 @@ func (r ShortenerRepository) CreateShortUrl(original string, shortened string) (
 }
 
 func (r ShortenerRepository) FindShortenedURL(id string) (interface{}, error) {
+
 	return r.db.Query("SELECT * FROM urls WHERE shortened = $shortened limit 1", map[string]interface{}{
 		"shortened": "http://localhost:8090/" + id,
 	})

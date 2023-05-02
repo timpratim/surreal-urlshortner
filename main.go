@@ -42,6 +42,3 @@ func main() {
 		log.Fatalf("failed to listen: %+v", err)
 	}
 }
-
-//https://www.youtube.com/watch?v=4KfuQwB5rIs&t=1s
-//curl -X POST -d "url=https://www.youtube.com/watch?v=4KfuQwB5rIs&t=1s" http://localhost:8080/shorten

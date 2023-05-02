@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // webService is used to handle web requests via it's public methods
@@ -44,6 +45,7 @@ func NewWebService(r *repository.ShortenerRepository, redirectAddress string) *w
 	}
 }
 
+// ShortenURL is used to create a shortened URL/
 func (ws webService) ShortenURL(writer http.ResponseWriter, request *http.Request) {
 	original := request.FormValue("url")
 	if original == "" {
@@ -129,7 +131,12 @@ func internalError(writer http.ResponseWriter, cause error) {
 	writer.WriteHeader(http.StatusInternalServerError)
 }
 
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
 func shortenURL(redirectUrl string) string {
+
 	s := ""
 	//rand.Intn(26) returns a random number between 0 and 25. 97 is the ascii value of 'a'. So rand.Intn(26) + 97 returns a random lowercase letter.
 	for i := 0; i < 6; i++ {
